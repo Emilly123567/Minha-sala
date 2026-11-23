@@ -1,0 +1,13 @@
+# Render: Blueprint do servidor do multiplayer (New → Blueprint, aponte para este repositório)
+services:
+  - type: web
+    name: digital-life-simulator
+    runtime: node
+    rootDir: server
+    buildCommand: "echo 'sem dependências'"
+    startCommand: node server.js
+    healthCheckPath: /saude
+    plan: free
+    envVars:
+      - key: DATA_DIR
+        value: /tmp/dls-salas

@@ -1,0 +1,10 @@
+{
+  "name": "digital-life-simulator-servidor",
+  "version": "0.11.0",
+  "description": "Servidor do multiplayer do Digital Life Simulator (WebSocket sem dependências).",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" },
+  "license": "UNLICENSED",
+  "private": true
+}
