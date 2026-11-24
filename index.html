@@ -886,7 +886,7 @@ body.tablet .toasts { bottom: auto; top: 8px; } body.tablet .toast { padding: 8p
 <body><div id="app"><div id="perfis" hidden></div><div id="computador" hidden></div></div>
 <script>"use strict";
 // ===== kernel/00_modulos.js =====
-const VERSAO_JOGO = '0.11.0'; // versão do Digital Life Simulator (Fase 11: multiplayer, jogos da sala, Save Exclusivo, servidor para o Render)
+const VERSAO_JOGO = '0.11.1'; // versão do Digital Life Simulator (Fase 11: multiplayer, jogos da sala, Save Exclusivo, servidor para o Render)
 // =====================================================================
 //  REGISTRO DE MÓDULOS
 //  Cada arquivo do projeto chama DLS.definir(nome, dependências, fábrica).
@@ -1554,7 +1554,8 @@ DLS.definir('app/codigo', ['os/vfs', 'os/dialogos', 'os/icones', 'kernel/util', 
       }
       function pedirAssistente(nivel) {
         nivelAssist = nivel; const c = contextoAssistente(); if (!c.lang) return;
-        const pedido = { nivel, lang: c.lang, codigo: ta.value, erro: c.erro && c.erro.arquivo !== relAtivo() ? Object.assign({}, c.erro, { linha: 0 }) : c.erro, testesOk: c.ok };
+        const projeto = []; if (c.lang === 'java' && raiz) { const andar = (id, prof) => { if (prof > 5 || projeto.length > 30) return; for (const f of vfs.filhos(id)) { if (f.lixo) continue; if (f.t === 'd') andar(f.id, prof + 1); else if (/\.java$/.test(f.n) && (!ativa || f.id !== ativa.id)) projeto.push(String(vfs.ler(f.id) || '')); } }; try { andar(raiz, 0); } catch (e) { /* sem projeto */ } }
+        const pedido = { nivel, lang: c.lang, arquivo: relAtivo(), projeto, codigo: ta.value, erro: c.erro && c.erro.arquivo !== relAtivo() ? Object.assign({}, c.erro, { linha: 0 }) : c.erro, testesOk: c.ok };
         const resp = assist.responder(pedido); respAssist = resp;
         if (resp.aplicar && !ativa.ro) { cod.guardarVersao(ativa.id, ta.value, 'antes do assistente (' + assist.NIVEIS[nivel].toLowerCase() + ')'); ta.value = resp.aplicar.novo; ativa.texto = ta.value; resp.aplicado = true; pintar(); desenharAbas(); verificarDepois(10); }
         else if (resp.aplicar && ativa.ro) resp.texto += '\n\n(O arquivo é somente leitura: copie o código para outro arquivo.)';
@@ -8354,8 +8355,44 @@ DLS.definir('sim/assistente', ['sim/codigo'], (cod) => {
     let p = 0, abriu = false; for (let i = iniLinha - 1; i < ls.length; i++) { for (const ch of ls[i].replace(/"(\\.|[^"\\])*"|'(\\.|[^'\\])*'|\/\/.*$/g, '')) { if (ch === '{') { p++; abriu = true; } else if (ch === '}') { p--; if (abriu && p === 0) return i + 1; } } } return -1;
   }
   const identificadores = (txt) => [...new Set(txt.replace(/"(\\.|[^"\\])*"|'(\\.|[^'\\])*'|--.*$|#.*$|\/\/.*$/gm, '').match(/[A-Za-z_][\w]*/g) || [])];
+  // ---------------- Java: maiúsculas, assert e testes conhecidos ----------------
+  // Java diferencia maiúsculas de minúsculas: main ≠ Main, JogadoresOnline ≠ jogadoresOnline.
+  // Junta os nomes do arquivo com os do projeto (classes, campos e métodos declarados
+  // nos outros .java) e troca cada variação pela grafia certa, sem mexer em textos entre aspas.
+  const API_JAVA = ['Assert', 'assertEquals', 'assertTrue', 'assertFalse', 'assertNotNull', 'System', 'Math', 'String', 'Integer', 'Double', 'Boolean', 'ArrayList', 'HashMap', 'List', 'Map', 'Scanner', 'StringBuilder', 'println', 'print', 'length', 'size', 'main', 'args'];
+  function declaradosJava(txt) { const t = String(txt || '').replace(/"(\\.|[^"\\])*"|\/\/.*$/gm, ''); const out = new Set(); let m; const re = /\b(?:class|interface|enum)\s+(\w+)|\b(?:int|long|double|float|boolean|char|String|void|byte|short|[A-Z]\w*(?:<[^>]*>)?(?:\[\])?)\s+(\w+)\s*[=;(,)]/g; while ((m = re.exec(t))) out.add(m[1] || m[2]); return out; }
+  function trocarFora(txt, de, para) { return txt.split(/("(?:\\.|[^"\\])*"|\/\/[^\n]*)/).map((pedaco, i) => (i % 2 ? pedaco : pedaco.replace(new RegExp('(^|[^\\w$])' + de + '(?![\\w$])', 'g'), '$1' + para))).join(''); }
+  function normalizarJava(codigo, projeto) {
+    const canon = new Map(), add = (n, peso) => { const k = n.toLowerCase(), a = canon.get(k); if (!a || a.peso < peso) canon.set(k, { n, peso }); };
+    for (const n of API_JAVA) add(n, 100); for (const t of projeto || []) for (const n of declaradosJava(t)) add(n, 50); for (const n of declaradosJava(codigo)) add(n, 40);
+    const contagem = {}; for (const n of (codigo.replace(/"(\\.|[^"\\])*"|\/\/.*$/gm, '').match(/[A-Za-z_]\w*/g) || [])) contagem[n] = (contagem[n] || 0) + 1;
+    for (const [n, c] of Object.entries(contagem)) add(n, Math.min(30, c));
+    // assert é palavra reservada do Java; nos testes do CodeNest é Assert.assertEquals / Assert.assertTrue
+    let novo = codigo; const trocas = [];
+    if (/\bassert\s*\.\s*\w/i.test(novo.replace(/Assert\.assert(Equals|True|False|NotNull)\b/g, ''))) { novo = novo.replace(/\b[aA]ssert\s*\.\s*[aA]ssert(Equals|True|False|NotNull)?\s*\(/g, (x, k) => 'Assert.assert' + (k || 'Equals') + '(').replace(/\bassert\s*\.\s*(\w+)/g, 'Assert.$1'); trocas.push('assert.assert → Assert.assertEquals'); }
+    for (const k of Object.keys(contagem)) delete contagem[k]; for (const n of (novo.replace(/"(\\.|[^"\\])*"|\/\/.*$/gm, '').match(/[A-Za-z_]\w*/g) || [])) contagem[n] = (contagem[n] || 0) + 1;
+    // "main.x" / "main.metodo(" usado como classe: em Java a classe é Main (o método main é outra coisa)
+    for (const [n] of Object.entries(contagem)) { const c = canon.get(n.toLowerCase()); if (c && c.n !== n && !/^(main|args)$/.test(c.n)) { novo = trocarFora(novo, n, c.n); trocas.push(n + ' → ' + c.n); } }
+    if (/(^|[^\w$])main\s*\.\s*\w/.test(novo.replace(/"(\\.|[^"\\])*"/g, '')) && (projeto || []).some((t) => /\bclass\s+Main\b/.test(t))) { novo = novo.replace(/(^|[^\w$.])main(\s*\.\s*\w)/g, '$1Main$2'); trocas.push('main. → Main. (a classe se chama Main)'); }
+    return { novo, trocas };
+  }
+  function testeConhecido(arquivo) { if (!arquivo) return null; const F = DLS.usar('dados/fase2'); return F.AURORA_TESTES[arquivo] || (F.EXEMPLOS && F.EXEMPLOS[arquivo]) || null; }
+  function diferencasTeste(atual, original) { const a = linhasDe(atual).map((l) => l.trim()).filter(Boolean), o = linhasDe(original).map((l) => l.trim()).filter(Boolean); return o.filter((l) => !a.includes(l)).slice(0, 6); }
+  function consertarJava(p) {
+    const { erro, codigo } = p; if (!erro) return null; const msg = erro.msg || '', L = erro.linha || 0;
+    const original = testeConhecido(p.arquivo), norm = normalizarJava(codigo, p.projeto);
+    // teste do Projeto Aurora / Primeiros passos que foi editado e quebrou: o teste certo é o original
+    if (original && original.replace(/\s+/g, '') !== codigo.replace(/\s+/g, '')) {
+      const falta = diferencasTeste(codigo, original);
+      return r('Este teste foi alterado e quebrou', 'Este é um teste do projeto (' + p.arquivo + ') e ele não está mais igual ao original. ' + (norm.trocas.length ? 'Problemas que encontrei: ' + norm.trocas.join('; ') + '. ' : '') + 'Java diferencia maiúsculas de minúsculas (Main, jogadoresOnline), "assert" sozinho é palavra reservada (o certo é Assert.assertEquals(esperado, obtido)) e o valor esperado precisa bater com o que a regra diz.' + (falta.length ? '\n\nLinhas do original que sumiram ou mudaram:\n' + falta.map((l) => '• ' + l).join('\n') : '') + '\n\nO teste é o que diz o que o código deve fazer: quem precisa mudar é o código que ele testa' + (/ServidorTest/.test(p.arquivo) ? ' (src/servidor/Main.java, o método conectar).' : '.'),
+        { linha: L, dica: 'Compare com o original: a classe é Main (M maiúsculo), o campo é jogadoresOnline e conectar uma pessoa deixa 1 jogador online.', conserto: comCodigo(original, [], 'voltar o teste ao original (o teste estava certo)'), aviso: 'Depois de restaurar, rode os testes: se falhar "aceitou 50 jogadores", abra src/servidor/Main.java e peça Implementação (nível 5).' });
+    }
+    if (norm.trocas.length && /encontrar o símbolo|não esperava "\."|não esperava '\.'|expressão inválida|símbolo/.test(msg)) return r('Maiúsculas, minúsculas e assert', 'Java diferencia maiúsculas de minúsculas, então ' + norm.trocas.join(', ') + '. ' + (/assert/.test(norm.trocas.join()) ? '"assert" sozinho é palavra reservada do Java; nos testes use Assert.assertEquals(esperado, obtido) ou Assert.assertTrue(condição). ' : '') + 'Corrigi todas as ocorrências do arquivo de uma vez.', { linha: L, dica: 'Confira a grafia exata dos nomes da linha ' + L + ': em Java "main" e "Main" são coisas diferentes.', conserto: comCodigo(norm.novo, [], 'corrigir maiúsculas e o assert (' + norm.trocas.length + ' troca(s))') });
+    return null;
+  }
   // ---------------- análise do erro ----------------
   function analisarErro(p) {
+    if (p.lang === 'java') { const j = consertarJava(p); if (j) return j; }
     const { erro, lang, codigo } = p; const ls = linhasDe(codigo); const L = erro.linha || 0; const linhaTxt = (ls[L - 1] || '').trim(); const msg = erro.msg || '';
     const onde = L ? ' na linha ' + L : '';
     // ---- erros de sintaxe ----
@@ -8431,6 +8468,7 @@ DLS.definir('sim/assistente', ['sim/codigo'], (cod) => {
     if (/TypeError/.test(msg) && /argumento/.test(msg)) return r('Argumentos errados', msg.replace(/^TypeError: /, '') + '. Compare a chamada' + onde + ' com a definição da função (def).', { linha: L });
     // falha de teste
     if (/esperado .*, obtido|AssertionError|assert/.test(msg) || erro.nome === 'assert' || erro.nome === 'AssertionError') {
+      if (/limite é 40/.test(msg)) return r('Teste falhou: falta o limite', 'O teste está certo: ' + msg.replace(/^(java\.lang\.)?AssertionError: /, '') + '. Quem precisa mudar é src/servidor/Main.java: o método conectar() aumenta jogadoresOnline sem conferir o limite.', { linha: L, dica: 'Em conectar(), antes de jogadoresOnline++, confira se já tem 40 jogadores e, se tiver, recuse (return).', teste: true, semAuto: 'A correção não é neste arquivo. Abra src/servidor/Main.java e peça Correção automática ou Implementação: lá eu coloco o limite de 40.' });
       return r('Teste falhou', 'O teste diz o que o código deveria fazer, e o código fez outra coisa: ' + msg.replace(/^(java\.lang\.)?AssertionError: /, '') + '. O problema normalmente não está no teste, e sim na função que ele chama.', { linha: L, dica: 'Calcule à mão o que a função faz com os valores do teste e compare com o esperado.', teste: true, semAuto: 'Não existe correção automática para teste que falha: o teste traz a regra, mas só quem conhece o design decide como o código chega lá. Se for uma tarefa conhecida, o nível Implementação pode ajudar.' });
     }
     return r('Erro durante a execução', msg + (L ? ' (linha ' + L + ')' : '') + '. Leia a mensagem com calma: ela diz o que aconteceu, e a linha diz onde.', { linha: L });
@@ -8476,7 +8514,7 @@ DLS.definir('sim/assistente', ['sim/codigo'], (cod) => {
     },
   };
   let provedor = ProvedorRegras;
-  return { NIVEIS, responder: (p) => provedor.responder(p), definirProvedor: (x) => (provedor = x || ProvedorRegras), _analisarErro: analisarErro };
+  return { normalizarJava, NIVEIS, responder: (p) => provedor.responder(p), definirProvedor: (x) => (provedor = x || ProvedorRegras), _analisarErro: analisarErro };
 });
 
 // ===== sim/codigo/codigo.js =====
