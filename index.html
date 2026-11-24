@@ -472,6 +472,13 @@ body.tablet .cd-ent textarea { flex: 1 1 60%; height: 40px; min-height: 0; resiz
 body.tablet .cd-saida { min-height: 120px; }
 .lj-cat { grid-column: 1 / -1; margin: 10px 0 0; font-size: 0.95em; color: var(--texto2); }
 .hm-selo { font-size: 0.82em; color: #5b6479; margin: 0 0 4px; }
+.cd-placar { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; padding: 6px 10px; border-radius: 6px; background: rgba(46, 160, 67, 0.12); margin: 8px 0; }
+.cd-passos { margin: 6px 0 8px; padding-left: 20px; }
+.cd-passos li { margin: 3px 0; }
+.cd-onde { border: 1px solid var(--borda); border-radius: 8px; margin: 8px 0; overflow: hidden; }
+.cd-onde header { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 6px 10px; background: rgba(255, 255, 255, 0.04); }
+.cd-resta { list-style: none; padding: 0; }
+.cd-resta li { margin: 4px 0; }
 
 /* =====================================================================
    SITES (cada um com identidade própria) e TELA DE PERFIS
@@ -886,7 +893,7 @@ body.tablet .toasts { bottom: auto; top: 8px; } body.tablet .toast { padding: 8p
 <body><div id="app"><div id="perfis" hidden></div><div id="computador" hidden></div></div>
 <script>"use strict";
 // ===== kernel/00_modulos.js =====
-const VERSAO_JOGO = '0.11.1'; // versão do Digital Life Simulator (Fase 11: multiplayer, jogos da sala, Save Exclusivo, servidor para o Render)
+const VERSAO_JOGO = '0.11.2'; // versão do Digital Life Simulator (Fase 11: multiplayer, jogos da sala, Save Exclusivo, servidor para o Render)
 // =====================================================================
 //  REGISTRO DE MÓDULOS
 //  Cada arquivo do projeto chama DLS.definir(nome, dependências, fábrica).
@@ -1529,7 +1536,7 @@ DLS.definir('app/codigo', ['os/vfs', 'os/dialogos', 'os/icones', 'kernel/util', 
           const ctxA = contextoAssistente();
           pc2.innerHTML = `<div class="cd-assist"><p class="cd-novoscript"><button class="bt pri" data-scripts>✦ Pedir um script do zero</button> <span class="sub">Descreva em português o que quer (mod, evento do Aurora, programa) e o assistente escreve, testa e explica onde colocar.</span></p><p class="sub">${ctxA.erro ? 'Analisando: ' + U.esc(ctxA.erro.msg).slice(0, 160) + (ctxA.erro.linha ? ' (linha ' + ctxA.erro.linha + ')' : '') : ctxA.lang ? 'Nenhum erro na última execução deste arquivo. O assistente comenta o código e as tarefas pendentes.' : 'Abra um arquivo .lua, .py ou .java.'}</p>
             <div class="cd-niveis" role="group" aria-label="Nível de ajuda">${assist.NIVEIS.slice(1).map((n, i) => `<button class="bt ${nivelAssist === i + 1 ? 'pri' : ''}" data-n="${i + 1}" ${ctxA.lang ? '' : 'disabled'}><b>${i + 1}</b> ${n}</button>`).join('')}</div>
-            <div class="cd-resp">${respAssist ? `<h4>${U.esc(respAssist.titulo)}</h4><p>${U.esc(respAssist.texto).replace(/\n/g, '<br>')}</p>${respAssist.linha ? `<button class="bt" data-irl="${respAssist.linha}">Ir para a linha ${respAssist.linha}</button>` : ''}${respAssist.sugestao ? diffHtml(ta.value, respAssist.sugestao.novo) : ''}${respAssist.aplicado ? '<p class="cd-ok">Aplicado no editor (ainda não salvo). Ctrl+S salva; o Histórico guarda a versão anterior.</p>' : ''}` : '<p class="sub">Escolha quanto de ajuda você quer: comece pela dica.</p>'}</div></div>`;
+            <div class="cd-resp">${respAssist && respAssist.v2 ? respV2(respAssist) : respAssist ? `<h4>${U.esc(respAssist.titulo)}</h4><p>${U.esc(respAssist.texto).replace(/\n/g, '<br>')}</p>${respAssist.linha ? `<button class="bt" data-irl="${respAssist.linha}">Ir para a linha ${respAssist.linha}</button>` : ''}${respAssist.sugestao ? diffHtml(ta.value, respAssist.sugestao.novo) : ''}${respAssist.aplicado ? '<p class="cd-ok">Aplicado no editor (ainda não salvo). Ctrl+S salva; o Histórico guarda a versão anterior.</p>' : ''}` : '<p class="sub">Escolha quanto de ajuda você quer: comece pela dica.</p>'}</div></div>`;
           return;
         }
         if (painel === 'historico') {
@@ -1541,6 +1548,37 @@ DLS.definir('app/codigo', ['os/vfs', 'os/dialogos', 'os/icones', 'kernel/util', 
         if (painel === 'tarefas') { const tf = cod.tarefas(); pc2.innerHTML = tf.length ? '<ul class="cd-tarefas">' + tf.map((t) => `<li class="${t.feita ? 'feita' : ''}"><b>${t.feita ? '✓' : '○'} ${U.esc(t.titulo)}</b><span class="sub">${U.esc(t.dica)}</span></li>`).join('') + '</ul>' : '<p class="vazio">Sem tarefas de programação neste perfil.</p>'; }
       }
       function diffHtml(a, b) { const d = cod.diff(a, b); const muda = d.map((x) => x.t !== ' '); const mostrar = d.map((x, i) => muda.slice(Math.max(0, i - 2), i + 3).some(Boolean)); let out = '', pulou = false, la = 0, lb = 0; d.forEach((x, i) => { if (x.t !== '+') la++; if (x.t !== '-') lb++; if (!mostrar[i]) { if (!pulou) out += '<div class="df-pula">⋯</div>'; pulou = true; return; } pulou = false; out += `<div class="df-${x.t === '+' ? 'mais' : x.t === '-' ? 'menos' : 'igual'}"><i>${x.t === '-' ? la : lb}</i>${x.t === ' ' ? ' ' : x.t} ${U.esc(x.l)}</div>`; }); return '<div class="cd-diff">' + (d.some((x) => x.t !== ' ') ? out : '<p class="sub">Nenhuma diferença.</p>') + '</div>'; }
+      // resposta dos níveis 3–5 (consertador: testa as correções antes de mostrar)
+      function respV2(r) {
+        if (r.carregando) return `<h4>${U.esc(r.titulo)}</h4><p class="sub" role="status">${U.esc(r.texto)}</p>`;
+        const res = r.res, muda = Object.keys(res.mudancas);
+        const placar = `<p class="cd-placar"><span>Antes: ${U.esc(res.placarAntes)}</span> → <b>Depois: ${U.esc(res.placarDepois)}</b></p>`;
+        const onde = res.onde.map((o) => `<section class="cd-onde"><header><b>${U.esc(o.arquivo)}</b>, linha ${o.linha} <button class="bt mini" data-irl="${o.linha}" data-irarq="${U.esc(o.arquivo)}">Abrir aqui</button></header>${diffHtml(res.originais[o.arquivo], res.mudancas[o.arquivo])}</section>`).join('');
+        const passos = res.passos.length ? `<ol class="cd-passos">${res.passos.map((p) => `<li><b>${U.esc(p.arquivo)}</b>: ${U.esc(p.desc)}${p.depoisPlacar ? ` <span class="sub">(${U.esc(p.depoisPlacar)})</span>` : ''}</li>`).join('')}</ol>` : '';
+        const resta = res.restante.length ? `<h5>Ainda falta</h5><ul class="cd-resta">${res.restante.map((f) => `<li><button class="bt mini" data-irl="${f.linha || 1}" data-irarq="${U.esc(f.arquivo || '')}">${U.esc((f.arquivo || '?') + (f.linha ? ':' + f.linha : ''))}</button> ${U.esc(f.msg || '')}</li>`).join('')}</ul>` : '';
+        const claude = res.explicacaoClaude && res.explicacaoClaude.length ? `<p>${res.explicacaoClaude.map(U.esc).join('<br>')}</p>` : '';
+        let topo;
+        if (!muda.length) topo = `<h4>${res.antes.pontos ? 'Não achei uma correção que funcione' : 'Está tudo funcionando'}</h4><p>${res.antes.pontos ? 'Testei as correções que conheço e nenhuma melhorou o resultado. Os problemas estão listados abaixo com o arquivo e a linha; abra cada um e veja a explicação no nível 2.' + (r.semClaude ? ' Com o Claude ligado (Assistente de Scripts → Usar o Claude), eu consigo resolver casos fora do que conheço.' : '') : 'Os testes passam e o arquivo roda sem erro. Nada para corrigir.'}</p>`;
+        else if (r.nivel === 3) topo = `<h4>Correção testada (ainda não aplicada)</h4><p>Experimentei ${res.passos.length} mudança(s) numa cópia do projeto e conferi rodando os testes. Veja onde e o quê:</p>${passos}<div class="ae-bts"><button class="bt pri" data-aplicarv2>Aplicar</button></div>`;
+        else topo = `<h4>${r.nivel === 5 ? 'Implementado' : 'Corrigido'} e testado</h4><p>Mudei ${muda.length} arquivo(s) e rodei os testes de novo. A versão anterior de cada arquivo ficou no Histórico.</p>${passos}<div class="ae-bts"><button class="bt" data-desfazerv2>Desfazer</button></div>`;
+        return topo + placar + claude + onde + resta;
+      }
+      async function resolverV2(nivel) {
+        const ativo = relAtivo(); respAssist = { v2: true, carregando: true, titulo: nivel === 5 ? 'Implementando…' : 'Procurando a correção…', texto: 'Rodando os testes do projeto e experimentando correções numa cópia. Leva alguns segundos.' }; desenharPainel();
+        try { await salvarTudo(); } catch (e) { /* segue com o que está no editor */ }
+        let res; try { res = await DLS.usar('sim/consertador').resolver({ raizId: raiz, ativo, buffer: ta.value, nivel, claude: DLS.usar('os/config').get('assistenteClaude') !== false }); }
+        catch (e) { respAssist = { titulo: 'O assistente falhou', texto: e.message }; desenharPainel(); return; }
+        const r = { v2: true, nivel, res, semClaude: !(typeof window !== 'undefined' && window.claude) };
+        if (nivel >= 4 && Object.keys(res.mudancas).length) aplicarV2(r);
+        respAssist = r; desenharPainel(); bus.emitir('assistente.usado', { nivel, lang: lingua(vfs.no(ativa.id).n), temErro: res.antes.pontos > 0, aplicou: !!r.feitos });
+      }
+      function aplicarV2(r) {
+        r.feitos = DLS.usar('sim/consertador').aplicar(raiz, r.res);
+        for (const f of r.feitos) { const a = abas.find((x) => x.id === f.id); if (a) { a.texto = a.original = String(vfs.ler(f.id) || ''); if (a === ativa) ta.value = a.texto; } }
+        pintar(); desenharAbas(); verificarDepois(10);
+        // roda os testes de verdade, para as tarefas do projeto contarem
+        const guardada = r; setTimeout(async () => { await rodar('testar'); respAssist = guardada; painel = 'assistente'; desenharPainel(); desenharPTabs && desenharPTabs(); }, 50);
+      }
       function contextoAssistente() {
         const q = ativa && vfs.no(ativa.id); const lang = q && EXEC.has(lingua(q.n)) ? lingua(q.n) : null; if (!lang) return { lang: null };
         const rel2 = relAtivo(); let erro = problemas.find((p) => !p.aviso) || null;
@@ -1554,6 +1592,7 @@ DLS.definir('app/codigo', ['os/vfs', 'os/dialogos', 'os/icones', 'kernel/util', 
       }
       function pedirAssistente(nivel) {
         nivelAssist = nivel; const c = contextoAssistente(); if (!c.lang) return;
+        if (nivel >= 3 && raiz && !exe.rodando()) { resolverV2(nivel); return; }
         const projeto = []; if (c.lang === 'java' && raiz) { const andar = (id, prof) => { if (prof > 5 || projeto.length > 30) return; for (const f of vfs.filhos(id)) { if (f.lixo) continue; if (f.t === 'd') andar(f.id, prof + 1); else if (/\.java$/.test(f.n) && (!ativa || f.id !== ativa.id)) projeto.push(String(vfs.ler(f.id) || '')); } }; try { andar(raiz, 0); } catch (e) { /* sem projeto */ } }
         const pedido = { nivel, lang: c.lang, arquivo: relAtivo(), projeto, codigo: ta.value, erro: c.erro && c.erro.arquivo !== relAtivo() ? Object.assign({}, c.erro, { linha: 0 }) : c.erro, testesOk: c.ok };
         const resp = assist.responder(pedido); respAssist = resp;
@@ -1583,6 +1622,8 @@ DLS.definir('app/codigo', ['os/vfs', 'os/dialogos', 'os/icones', 'kernel/util', 
         const il = e.target.closest('[data-irl]'); if (il) { const arq = il.dataset.irarq; if (arq && arq !== relAtivo()) irParaArquivo(arq, +il.dataset.irl, ultimo && ultimo.ids); else if (+il.dataset.irl) irPara(+il.dataset.irl); return; }
         const d = e.target.closest('[data-d]'); if (d) { const k = d.dataset.d; passo(/^-?\d+$/.test(k) ? +k : k); return; }
         const nv = e.target.closest('[data-n]'); if (nv) { pedirAssistente(+nv.dataset.n); return; }
+        if (e.target.closest('[data-aplicarv2]') && respAssist && respAssist.res) { respAssist.nivel = 4; aplicarV2(respAssist); desenharPainel(); return; }
+        if (e.target.closest('[data-desfazerv2]') && respAssist && respAssist.feitos) { DLS.usar('sim/consertador').desfazer(respAssist.feitos); for (const f of respAssist.feitos) { const a = abas.find((x) => x.id === f.id); if (a) { a.texto = a.original = f.antigo; if (a === ativa) ta.value = a.texto; } } pintar(); desenharAbas(); respAssist = { titulo: 'Desfeito', texto: 'Os arquivos voltaram a como estavam antes do assistente.' }; desenharPainel(); return; }
         const h = e.target.closest('[data-h]'); if (h) { histSel = +h.dataset.h; desenharPainel(); return; }
         const n = e.target.closest('[data-no]'); if (n) { const q = vfs.no(n.dataset.no); if (q.t === 'd') { abertas.has(q.id) ? abertas.delete(q.id) : abertas.add(q.id); desenharArvore(); } else { abrirArquivo(q.id); bus.emitir('arquivo.aberto', { id: q.id, caminho: vfs.caminho(q.id), app: 'codigo' }); } return; }
         const b = e.target.closest('[data-a]'); if (!b || b.disabled) return; const a = b.dataset.a;
@@ -8514,7 +8555,7 @@ DLS.definir('sim/assistente', ['sim/codigo'], (cod) => {
     },
   };
   let provedor = ProvedorRegras;
-  return { normalizarJava, NIVEIS, responder: (p) => provedor.responder(p), definirProvedor: (x) => (provedor = x || ProvedorRegras), _analisarErro: analisarErro };
+  return { IMPLEMENTACOES, normalizarJava, NIVEIS, responder: (p) => provedor.responder(p), definirProvedor: (x) => (provedor = x || ProvedorRegras), _analisarErro: analisarErro };
 });
 
 // ===== sim/codigo/codigo.js =====
@@ -8640,6 +8681,209 @@ DLS.definir('sim/codigo', ['kernel/bus', 'saves/registro', 'sim/relogio', 'os/vf
   }
   bus.ao('perfil.carregado', () => garantirConteudo());
   return { guardarVersao, versoes, diff, pontos, alternarPonto, entrada, definirEntrada, proximoBuild, tarefas, garantirConteudo, AURORA, PASSOS, _estado: () => S };
+});
+
+// ===== sim/codigo/consertador.js =====
+// =====================================================================
+//  CONSERTADOR — o cérebro dos níveis 3, 4 e 5 do assistente do CodeNest (v2)
+//  Em vez de olhar só a linha do erro, ele:
+//   1. lê o projeto inteiro (com o que está aberto no editor) e roda os testes
+//      e o arquivo aberto num interpretador separado, sem tocar em nada;
+//   2. junta candidatos de correção de várias fontes:
+//      · consertos por regra do erro (sintaxe, nomes, divisão por zero, índices…)
+//      · Java: maiúsculas/minúsculas e assert
+//      · testes do projeto que foram editados e quebraram (volta ao original)
+//      · tarefas conhecidas do Projeto Aurora e dos Primeiros passos
+//      · implementação a partir dos testes: deduz a fórmula que satisfaz todos os
+//        exemplos (igual(30, combate.dano(12, 4)) …) e escreve a função
+//      · Claude, quando o jogo roda no Claude e a pessoa permite
+//   3. testa cada candidato de verdade e fica só com o que melhora o resultado,
+//      repetindo até tudo passar ou não haver mais o que melhorar;
+//   4. devolve onde mudou (arquivo e linha), o antes e o depois, e o placar dos
+//      testes antes e depois. Nada é aplicado sem ter sido testado.
+// =====================================================================
+DLS.definir('sim/consertador', ['runtime/executor', 'os/vfs', 'sim/codigo', 'sim/assistente', 'dados/fase2', 'kernel/log'], (exe, vfs, cod, AS, F2, log) => {
+  const L = log.de('consertador'), RT = exe.RT;
+  const linhas = (t) => String(t).split('\n');
+  const ehTeste = (rel) => exe.ehTeste(rel);
+  // ---------------- avaliar um conjunto de arquivos ----------------
+  // arquivos de conteúdo (eventos e conteúdo do Aurora, jogos da sala) também são conferidos pelo esquema
+  let baseAtual = '';
+  function tipoPelaPasta(rel) { const m = rel.match(/(?:^|\/)(eventos|itens|inimigos|missoes|biomas|mecanicas)\/[^/]+\.lua$/); return m ? { eventos: 'evento', itens: 'item', inimigos: 'inimigo', missoes: 'missao', biomas: 'bioma', mecanicas: 'mecanica' }[m[1]] : rel === 'jogo.lua' ? 'jogo' : null; }
+  const ehConteudo = (rel) => (baseAtual === cod.AURORA && /^src\/(eventos|conteudo\/(itens|inimigos|missoes))\/[^/]+\.lua$/.test(rel)) || (baseAtual.startsWith('/Usuário/Projetos/Jogos da Sala/') && !!tipoPelaPasta(rel));
+  function conferirConteudo(rel, txt) { const G = DLS.usar('sim/gerador'); let o; try { o = G.lerModuloAurora(rel.split('/').pop(), txt); } catch (e) { const j = RT.erroJson(e); return { ok: false, erros: [j.msg || e.message], linha: j.linha, tipo: 'sintaxe' }; } const v = G.validarAurora(o), esp = tipoPelaPasta(rel); if (v.ok && esp && o.tipo !== esp) return { ok: false, erros: ['tipo "' + o.tipo + '" na pasta de ' + esp], o }; return Object.assign(v, { o }); }
+  function avaliar(arquivos, principal) {
+    const out = { falhas: [], total: 0, ok: 0, erroExec: null, pontos: 0 }, testes = Object.keys(arquivos).filter(ehTeste).sort();
+    if (testes.length) {
+      let r; try { r = RT.rodar({ modo: 'testar', arquivos, testes, limitePassos: 2e6, prazoMs: 2500, semente: 7 }, () => {}); } catch (e) { r = { ok: false, erro: { tipo: 'execucao', msg: e.message } }; }
+      if (r.testes) for (const t of r.testes) for (const c of t.casos) { out.total++; if (c.ok) out.ok++; else out.falhas.push(Object.assign({}, c.erro || { msg: 'falhou' }, { teste: t.arquivo, caso: c.nome, arquivo: (c.erro && c.erro.arquivo) || t.arquivo })); }
+      else if (r.erro) out.falhas.push(Object.assign({ teste: '?' }, r.erro));
+    }
+    if (principal && !ehTeste(principal) && RT.linguaDe(principal.split('/').pop())) {
+      let r; try { r = RT.rodar({ modo: 'executar', arquivos, principal, entrada: '', limitePassos: 1e6, prazoMs: 2000, semente: 7 }, () => {}); } catch (e) { r = { ok: false, erro: { tipo: 'execucao', msg: e.message } }; }
+      if (!r.ok && r.erro && !/EOF|entrada|input|io\.read|nextLine|NoSuchElement|limite|tempo/i.test(r.erro.msg || '')) out.erroExec = Object.assign({}, r.erro, { arquivo: r.erro.arquivo || principal });
+    }
+    for (const [k, v] of Object.entries(arquivos)) if (ehConteudo(k)) { const c = conferirConteudo(k, v); if (!c.ok) out.falhas.push({ tipo: c.tipo || 'conteudo', msg: c.erros.join('; '), arquivo: k, linha: c.linha || 0, conteudo: true }); }
+    const peso = (f) => (f.tipo === 'compilacao' || f.tipo === 'sintaxe' ? 3 : 1);
+    out.pontos = out.falhas.reduce((s, f) => s + peso(f), 0) + (out.erroExec ? peso(out.erroExec) : 0); return out;
+  }
+  const placar = (a) => (a.total ? a.ok + ' de ' + a.total + ' testes passando' : 'sem testes') + (a.erroExec ? ' · o arquivo dá erro ao rodar' : '');
+  // ---------------- de qual arquivo é o problema ----------------
+  function alvosDe(f, arquivos) {
+    const out = new Set(); if (f.arquivo && !ehTeste(f.arquivo) && arquivos[f.arquivo] != null) out.add(f.arquivo);
+    for (const p of f.pilha || []) if (p.arq && !ehTeste(p.arq) && arquivos[p.arq] != null) out.add(p.arq);
+    const t = f.teste && arquivos[f.teste]; if (t) {
+      for (const m of t.matchAll(/require\s*\(?\s*["']([\w./]+)["']/g)) for (const c of [m[1] + '.lua', 'src/' + m[1] + '.lua', m[1].replace(/\./g, '/') + '.lua']) if (arquivos[c] != null) out.add(c);
+      for (const m of t.matchAll(/(?:from|import)\s+([\w.]+)/g)) for (const c of [m[1].replace(/\./g, '/') + '.py', 'src/' + m[1].replace(/\./g, '/') + '.py']) if (arquivos[c] != null) out.add(c);
+      for (const m of t.matchAll(/\b([A-Z]\w*)\s*\./g)) for (const [k, v] of Object.entries(arquivos)) if (k.endsWith('.java') && !ehTeste(k) && new RegExp('\\bclass\\s+' + m[1] + '\\b').test(v)) out.add(k);
+    }
+    return [...out];
+  }
+  // ---------------- implementação a partir dos testes ----------------
+  // Junta exemplos "esperado = f(args)" dos testes e procura a fórmula mais simples que bate com todos.
+  function exemplos(arquivos) {
+    const ex = {}; const num = '(-?\\d+(?:\\.\\d+)?)', args = '((?:\\s*-?\\d+(?:\\.\\d+)?\\s*,?)*)';
+    const add = (f, a, e) => { const xs = a.split(',').map((s) => s.trim()).filter(Boolean).map(Number); (ex[f] = ex[f] || []).push({ a: xs, e: +e }); };
+    for (const [k, t] of Object.entries(arquivos)) { if (!ehTeste(k)) continue;
+      for (const m of t.matchAll(new RegExp('igual\\(\\s*' + num + '\\s*,\\s*([\\w.:]+)\\(' + args + '\\)', 'g'))) add(m[2], m[3], m[1]);
+      for (const m of t.matchAll(new RegExp('assert(?:Equals)?\\(\\s*' + num + '\\s*,\\s*([\\w.]+)\\(' + args + '\\)', 'g'))) add(m[2], m[3], m[1]);
+      for (const m of t.matchAll(new RegExp('assert\\s+([\\w.]+)\\(' + args + '\\)\\s*==\\s*' + num, 'g'))) add(m[1], m[2], m[3]);
+      for (const m of t.matchAll(new RegExp('assertEqual\\(\\s*([\\w.]+)\\(' + args + '\\)\\s*,\\s*' + num, 'g'))) add(m[1], m[2], m[3]); }
+    return ex;
+  }
+  function sintetizar(lista) {
+    const n = Math.max(...lista.map((x) => x.a.length)); if (!n || n > 3 || lista.some((x) => x.a.length !== n)) return null;
+    const consts = [...new Set([1, 2, 10, 100, ...lista.flatMap((x) => [x.e])].filter((c) => Math.abs(c) <= 1000 && Number.isInteger(c)))].slice(0, 6);
+    const P = Array.from({ length: n }, (_, i) => ({ s: 'p' + i, f: (a) => a[i], peso: 1 }));
+    const folhas = P.concat(consts.map((c) => ({ s: String(c), f: () => c, peso: 1, k: true })), P.map((p) => ({ s: 'max(' + p.s + ',1)', f: (a) => Math.max(p.f(a), 1), peso: 2 })));
+    const ops = [['+', (x, y) => x + y], ['-', (x, y) => x - y], ['*', (x, y) => x * y], ['/', (x, y) => (y === 0 ? NaN : x / y)]];
+    const bate = (f) => lista.every((x) => { const v = f(x.a); return isFinite(v) && Math.abs(v - x.e) < 1e-9; });
+    const tentar = (exprs) => { for (const e of exprs) { if (bate(e.f)) return e; const fl = (a) => Math.floor(e.f(a)); if (bate(fl)) return { s: 'floor(' + e.s + ')', f: fl, peso: e.peso + 1 }; } return null; };
+    let r = tentar(folhas.filter((x) => !x.k)); if (r) return r;
+    const d1 = []; for (const x of folhas) for (const y of folhas) { if (x.k && y.k) continue; for (const [o, g] of ops) d1.push({ s: '(' + x.s + o + y.s + ')', f: (a) => g(x.f(a), y.f(a)), peso: x.peso + y.peso }); }
+    d1.sort((a, b) => a.peso - b.peso); r = tentar(d1); if (r) return r;
+    const d2 = []; for (const x of d1.slice(0, 600)) for (const y of folhas) for (const [o, g] of ops) { d2.push({ s: '(' + x.s + o + y.s + ')', f: (a) => g(x.f(a), y.f(a)), peso: x.peso + y.peso }); d2.push({ s: '(' + y.s + o + x.s + ')', f: (a) => g(y.f(a), x.f(a)), peso: x.peso + y.peso }); }
+    d2.sort((a, b) => a.peso - b.peso); r = tentar(d2); if (r) return r;
+    const ks = folhas.filter((x) => x.k); for (const x of d2.slice(0, 25000)) for (const y of ks) for (const [o, g] of ops) { const t = tentar([{ s: '(' + x.s + o + y.s + ')', f: (a) => g(x.f(a), y.f(a)), peso: x.peso + 1 }]); if (t) return t; }
+    return null;
+  }
+  function paraLinguagem(s, lang, params) {
+    let t = s.replace(/p(\d)/g, (m, i) => (lang === 'java' ? '((double) ' + (params[+i] || m) + ')' : params[+i] || m));
+    if (lang === 'lua') return t.replace(/floor\(/g, 'math.floor(').replace(/max\(/g, 'math.max(');
+    if (lang === 'py') { t = t.replace(/max\(/g, 'max('); for (let i = t.indexOf('floor('); i >= 0; i = t.indexOf('floor(')) { let p = 0, j = i + 5; for (; j < t.length; j++) { if (t[j] === '(') p++; else if (t[j] === ')') { p--; if (!p) break; } } t = t.slice(0, i) + 'int((' + t.slice(i + 6, j) + ') // 1)' + t.slice(j + 1); } return t; }
+    return t.replace(/floor\(/g, 'Math.floor(').replace(/max\(/g, 'Math.max(');
+  }
+  function implementarPorTestes(arquivos) {
+    const cands = [];
+    for (const [f, lista] of Object.entries(exemplos(arquivos))) {
+      const nome = f.split(/[.:]/).pop(), dono = f.includes('.') || f.includes(':') ? f.split(/[.:]/)[0] : null;
+      for (const [k, txt] of Object.entries(arquivos)) {
+        if (ehTeste(k)) continue; const lang = RT.linguaDe(k.split('/').pop()); let m, re;
+        if (lang === 'lua') re = new RegExp('(^|\\n)([ \\t]*)((?:local\\s+)?function\\s+' + (dono ? '[\\w]+[.:]' : '') + nome + '\\s*\\(([^)]*)\\))[\\s\\S]*?\\n\\2end\\b');
+        else if (lang === 'py') re = new RegExp('(^|\\n)([ \\t]*)(def\\s+' + nome + '\\s*\\(([^)]*)\\)\\s*:)[^\\n]*\\n((?:\\2[ \\t]+[^\\n]*\\n|[ \\t]*\\n)*)');
+        else if (lang === 'java') re = new RegExp('(^|\\n)([ \\t]*)((?:(?:public|private|protected|static|final)\\s+)*(int|long|double|float)\\s+' + nome + '\\s*\\(([^)]*)\\)\\s*\\{)');
+        if (!re || !(m = re.exec(txt))) continue;
+        const sol = sintetizar(lista); if (!sol) continue;
+        const params = (lang === 'java' ? m[5] : m[4]).split(',').map((p) => p.trim().split(/\s+/).pop()).filter(Boolean); if (params.length !== lista[0].a.length) continue;
+        let expr = paraLinguagem(sol.s, lang, params), novo, ind = m[2];
+        if (lang === 'lua') novo = txt.replace(m[0], m[1] + ind + m[3] + '\n' + ind + '  -- implementado a partir dos testes: ' + lista.slice(0, 3).map((x) => nome + '(' + x.a.join(', ') + ') = ' + x.e).join('; ') + '\n' + ind + '  return ' + expr + '\n' + ind + 'end');
+        else if (lang === 'py') { if (/\/\//.test(expr) || /int\(/.test(expr)) expr = expr; novo = txt.replace(m[0], m[1] + ind + m[3] + '\n' + ind + '    # implementado a partir dos testes\n' + ind + '    return ' + expr + '\n'); }
+        else { const ini = txt.indexOf(m[0]) + m[0].length; const ls = linhas(txt), linhaIni = txt.slice(0, ini).split('\n').length; let p = 0, fim = -1; for (let i = linhaIni - 1; i < ls.length; i++) { for (const ch of ls[i]) { if (ch === '{') p++; else if (ch === '}') { p--; if (p === 0) { fim = i; break; } } } if (fim >= 0) break; }
+          if (fim < 0) continue; const tipo = m[4], e2 = tipo === 'int' || tipo === 'long' ? '(' + tipo + ') (' + expr + ')' : expr; ls.splice(linhaIni, fim - linhaIni, ind + '    // implementado a partir dos testes', ind + '    return ' + e2 + ';'); novo = ls.join('\n'); }
+        if (novo && novo !== txt) cands.push({ arquivo: k, novo, desc: 'implementar ' + nome + '() a partir dos testes (' + lista.length + ' exemplo(s))', origem: 'testes' });
+      }
+    }
+    return cands;
+  }
+  // ---------------- referência: arquivos originais do projeto ----------------
+  let refs = null;
+  function referencias() {
+    if (refs) return refs; refs = {}; try { const lista = DLS.usar('modos/arquivos').arquivos({ modo: 'desenvolvedor' }); for (const [cam, o] of lista) { if (typeof o.c !== 'string') continue; for (const base of [cod.AURORA, cod.PASSOS]) if (cam.startsWith(base + '/')) refs[base + '|' + cam.slice(base.length + 1)] = o.c; } } catch (e) { L.aviso('referências: ' + e.message); }
+    for (const [k, c] of Object.entries(F2.EXEMPLOS || {})) refs[cod.PASSOS + '|' + k] = c; for (const [k, c] of Object.entries(F2.AURORA_TESTES || {})) refs[cod.AURORA + '|' + k] = c; return refs;
+  }
+  // ---------------- candidatos ----------------
+  function candidatos(arquivos, av, ctx) {
+    const out = [], visto = new Set(), push = (c) => { if (!c || c.novo == null || c.novo === arquivos[c.arquivo]) return; const k = c.arquivo + '\u0000' + c.novo; if (visto.has(k)) return; visto.add(k); out.push(c); };
+    const problemas = av.falhas.concat(av.erroExec ? [av.erroExec] : []), javas = Object.entries(arquivos).filter(([k]) => k.endsWith('.java')).map(([, v]) => v);
+    for (const f of problemas) {
+      const arq = f.arquivo; const lang = arq && RT.linguaDe(arq.split('/').pop());
+      if (arq && arquivos[arq] != null && lang) { try { const a = AS._analisarErro({ erro: f, lang, codigo: arquivos[arq], arquivo: arq, projeto: javas }); if (a.conserto) push({ arquivo: arq, novo: a.conserto.novo, desc: a.conserto.desc, origem: 'regra', motivo: a.titulo + ': ' + a.texto }); } catch (e) { /* regra não se aplica */ } }
+      for (const alvo of alvosDe(f, arquivos)) { const lg = RT.linguaDe(alvo.split('/').pop()); for (const imp of AS.IMPLEMENTACOES) { try { if (imp.teste({ lang: lg, codigo: arquivos[alvo] })) push({ arquivo: alvo, novo: imp.aplicar(arquivos[alvo]), desc: imp.desc, origem: 'tarefa' }); } catch (e) { /* ignora */ } } }
+    }
+    for (const [k, v] of Object.entries(arquivos)) {
+      const lang = RT.linguaDe(k.split('/').pop()); if (!lang) continue;
+      if (lang === 'java') { const n = AS.normalizarJava(v, javas.filter((x) => x !== v)); if (n.trocas.length) push({ arquivo: k, novo: n.novo, desc: 'corrigir maiúsculas/minúsculas e assert (' + n.trocas.join(', ') + ')', origem: 'java' }); }
+      const ref = ctx.base && referencias()[ctx.base + '|' + k];
+      if (ref && ehTeste(k) && ref.replace(/\s+/g, '') !== v.replace(/\s+/g, '')) push({ arquivo: k, novo: ref, desc: 'voltar o teste ' + k + ' ao original (o teste estava certo)', origem: 'original' });
+      if (ref && !ehTeste(k)) { let r2 = ref; for (const imp of AS.IMPLEMENTACOES) { try { if (imp.teste({ lang, codigo: r2 })) r2 = imp.aplicar(r2); } catch (e) { /* ignora */ } } if (r2 !== v) push({ arquivo: k, novo: r2, desc: 'reescrever ' + k + ' a partir da versão de referência do projeto, já com a tarefa feita', origem: 'referencia', ultimo: true });
+        for (const imp of AS.IMPLEMENTACOES) { try { if (imp.teste({ lang, codigo: v })) push({ arquivo: k, novo: imp.aplicar(v), desc: imp.desc, origem: 'tarefa' }); } catch (e) { /* ignora */ } } }
+    }
+    for (const c of implementarPorTestes(arquivos)) push(c);
+    // conteúdo fora do esquema: completa campos, corrige o tipo e põe os números nos limites
+    for (const f of problemas.filter((x) => x.conteudo)) { const n = consertarConteudo(f.arquivo, arquivos[f.arquivo]); if (n) push({ arquivo: f.arquivo, novo: n.txt, desc: 'ajustar ' + f.arquivo + ' ao formato que o jogo lê (' + n.mudou.join(', ') + ')', origem: 'conteudo' }); }
+    return out.sort((a, b) => (a.ultimo ? 1 : 0) - (b.ultimo ? 1 : 0));
+  }
+  function consertarConteudo(rel, txt) {
+    const G = DLS.usar('sim/gerador'); let o = {}; try { o = G.lerModuloAurora(rel.split('/').pop(), txt); } catch (e) { /* arquivo quebrado: recomeça com o que der */ }
+    const tipo = tipoPelaPasta(rel) || o.tipo; const E = G.ESQUEMAS[tipo]; if (!E) return null; const mudou = [], nome = rel.split('/').pop().replace(/\.lua$/, '').replace(/_/g, ' ');
+    if (o.tipo !== tipo) { o.tipo = tipo; mudou.push('tipo'); }
+    const padrao = { string: (k) => (k === 'nome' ? nome.charAt(0).toUpperCase() + nome.slice(1) : k === 'cor' ? '#4c8f4a' : k === 'slot' ? 'arma' : k === 'raridade' ? 'comum' : k === 'genero' ? 'fantasia' : k === 'id' ? 'pesca' : k === 'alvo' ? 'lobo' : 'A definir'), number: (k) => ((E.limites || {})[k] ? E.limites[k][0] : k === 'preco' ? 50 : 1), boolean: () => false };
+    for (const [k, tp] of Object.entries(E.campos)) { if (typeof o[k] === tp) continue; if (tp === 'number' && typeof o[k] === 'string' && isFinite(+o[k])) o[k] = +o[k]; else if (tp === 'boolean' && typeof o[k] === 'string') o[k] = o[k] === 'true'; else if (tp === 'string' && o[k] != null) o[k] = String(o[k]); else o[k] = padrao[tp](k); mudou.push(k); }
+    for (const [k, [a, b]] of Object.entries(E.limites || {})) if (typeof o[k] === 'number' && (o[k] < a || o[k] > b)) { o[k] = Math.min(b, Math.max(a, o[k])); mudou.push(k + ' no limite ' + a + '–' + b); }
+    for (const [k, l] of Object.entries(E.opcoes || {})) if (!l.includes(o[k])) { const n = String(o[k] || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); o[k] = l.find((x) => x === n || x.startsWith(n.slice(0, 3))) || l[0]; mudou.push(k); }
+    if (!mudou.length) return null; const cab = (txt.match(/^(--[^\n]*\n)+/) || [''])[0];
+    return { txt: cab + 'return {\n' + Object.entries(o).map(([k, v]) => '  ' + k + ' = ' + (typeof v === 'string' ? '"' + v.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"' : String(v)) + ',').join('\n') + '\n}\n', mudou };
+  }
+  // ---------------- onde mudou ----------------
+  function ondeMudou(antes, depois) {
+    const a = linhas(antes), b = linhas(depois); let i = 0; while (i < a.length && i < b.length && a[i] === b[i]) i++;
+    let ja = a.length - 1, jb = b.length - 1; while (ja >= i && jb >= i && a[ja] === b[jb]) { ja--; jb--; }
+    return { linha: i + 1, antes: a.slice(i, ja + 1).slice(0, 12), depois: b.slice(i, jb + 1).slice(0, 12) };
+  }
+  // ---------------- Claude ----------------
+  async function viaClaude(arquivos, av, ctx) {
+    let sample = null; try { sample = typeof window !== 'undefined' && window.claude && (await window.claude.use('sample')); } catch (e) { sample = null; } if (!sample) return null;
+    const corte = (t) => (t.length > 6000 ? t.slice(0, 6000) + '\n…(cortado)' : t);
+    const proj = Object.entries(arquivos).filter(([k]) => RT.linguaDe(k.split('/').pop())).slice(0, 14).map(([k, v]) => '=== ' + k + ' ===\n' + corte(v)).join('\n\n');
+    const prob = av.falhas.concat(av.erroExec ? [av.erroExec] : []).slice(0, 12).map((f) => '- ' + (f.teste ? f.teste + ' › ' + (f.caso || '') + ': ' : '') + (f.arquivo || '') + (f.linha ? ':' + f.linha : '') + ' ' + (f.msg || '')).join('\n') || '(nenhum erro; o pedido é implementar o que falta, como os TODO)';
+    let msgs = [{ role: 'user', content: 'Você é o assistente de programação do CodeNest, um editor dentro do jogo Digital Life Simulator. Linguagens: Lua 5, Python 3 básico e Java (sem bibliotecas externas; testes Java usam Assert.assertEquals/assertTrue; testes Lua usam igual(esperado, obtido, msg)). Corrija o projeto para os testes passarem e o arquivo aberto rodar sem erro. Não mude os testes, a não ser que o teste esteja claramente quebrado (sintaxe ou nomes errados). Mantenha o estilo e os comentários em português.\nResponda SÓ com JSON: {"explicacao":["frases curtas em português, dizendo arquivo e linha"],"mudancas":[{"arquivo":"caminho relativo","conteudo":"arquivo inteiro corrigido"}]}\n\nArquivo aberto: ' + ctx.ativo + '\nPedido: ' + (ctx.nivel === 5 ? 'implementar o que falta' : 'corrigir os erros') + '\n\nProblemas:\n' + prob + '\n\nProjeto:\n' + proj }];
+    for (let t = 0; t < 2; t++) {
+      let r; try { r = await sample.json(msgs, { modelTier: 'default' }); } catch (e) { return { erro: e.code || e.message }; }
+      const muda = {}; for (const m of (r && r.mudancas) || []) if (m && typeof m.conteudo === 'string' && m.arquivo && arquivos[m.arquivo] != null) muda[m.arquivo] = m.conteudo;
+      if (!Object.keys(muda).length) return null; const novo = Object.assign({}, arquivos, muda), av2 = avaliar(novo, ctx.ativo);
+      if (av2.pontos < av.pontos || (av2.pontos === 0 && ctx.nivel === 5)) return { mudancas: muda, explicacao: [].concat(r.explicacao || []), av: av2 };
+      msgs = msgs.concat([{ role: 'assistant', content: JSON.stringify(r) }, { role: 'user', content: 'Testei e não melhorou: ' + placar(av2) + '. Problemas agora:\n' + av2.falhas.slice(0, 8).map((f) => '- ' + (f.arquivo || '') + (f.linha ? ':' + f.linha : '') + ' ' + f.msg).join('\n') + '\nCorrija e devolva o JSON completo de novo.' }]);
+    }
+    return null;
+  }
+  // ---------------- principal ----------------
+  // op: { raizId, ativo (caminho relativo), buffer (texto no editor), nivel, claude (bool) }
+  async function resolver(op) {
+    const proj = exe.coletar(op.raizId), arquivos = Object.assign({}, proj.arquivos); if (op.ativo && op.buffer != null) arquivos[op.ativo] = op.buffer;
+    const base = proj.base; baseAtual = base; const inicial = Object.assign({}, arquivos), av0 = avaliar(arquivos, op.ativo); let av = av0, atual = arquivos; const passos = [];
+    for (let volta = 0; volta < 8 && av.pontos > 0; volta++) {
+      let melhor = null;
+      for (const c of candidatos(atual, av, { base })) { const tent = Object.assign({}, atual, { [c.arquivo]: c.novo }), a = avaliar(tent, op.ativo); if (a.pontos < av.pontos && (!melhor || a.pontos < melhor.a.pontos)) melhor = { c, a, tent }; if (melhor && melhor.a.pontos === 0) break; }
+      if (!melhor) break; passos.push(Object.assign({ antesPlacar: placar(av), depoisPlacar: placar(melhor.a) }, melhor.c)); atual = melhor.tent; av = melhor.a;
+    }
+    let fonte = 'local', explicacaoClaude = null;
+    if (av.pontos > 0 && op.claude !== false) { const c = await viaClaude(atual, av, { ativo: op.ativo, nivel: op.nivel }); if (c && c.mudancas) { for (const [k, v] of Object.entries(c.mudancas)) passos.push({ arquivo: k, novo: v, desc: 'correção do Claude', origem: 'claude' }); atual = Object.assign({}, atual, c.mudancas); av = c.av; fonte = 'claude'; explicacaoClaude = c.explicacao; } }
+    // nível 5 sem erro: implementar tarefas conhecidas (TODO) do arquivo aberto
+    if (!passos.length && op.nivel === 5 && op.ativo) { const lang = RT.linguaDe(op.ativo.split('/').pop()); for (const imp of AS.IMPLEMENTACOES) { try { if (imp.teste({ lang, codigo: atual[op.ativo] })) { const novo = imp.aplicar(atual[op.ativo]); if (novo !== atual[op.ativo]) { const a = avaliar(Object.assign({}, atual, { [op.ativo]: novo }), op.ativo); if (a.pontos <= av.pontos) { passos.push({ arquivo: op.ativo, novo, desc: imp.desc, origem: 'tarefa' }); atual = Object.assign({}, atual, { [op.ativo]: novo }); av = a; } } } } catch (e) { /* ignora */ } } }
+    const mudancas = {}; for (const [k, v] of Object.entries(atual)) if (v !== inicial[k]) mudancas[k] = v;
+    const onde = Object.keys(mudancas).map((k) => Object.assign({ arquivo: k, id: proj.ids[k] }, ondeMudou(inicial[k], mudancas[k])));
+    const restante = av.falhas.concat(av.erroExec ? [av.erroExec] : []).slice(0, 6).map((f) => ({ arquivo: f.arquivo, linha: f.linha || 0, msg: f.msg, caso: f.caso }));
+    const originais = {}; for (const k of Object.keys(mudancas)) originais[k] = inicial[k];
+    return { originais, antes: av0, depois: av, placarAntes: placar(av0), placarDepois: placar(av), passos: passos.map((p) => ({ arquivo: p.arquivo, desc: p.desc, origem: p.origem, motivo: p.motivo, antesPlacar: p.antesPlacar, depoisPlacar: p.depoisPlacar })), mudancas, onde, restante, fonte, explicacaoClaude, ids: proj.ids };
+  }
+  // grava as mudanças no projeto (com histórico, para dar para desfazer)
+  function aplicar(raizId, res) {
+    const feitos = [];
+    for (const [rel, txt] of Object.entries(res.mudancas)) { const id = res.ids[rel] || (vfs.resolver(vfs.caminho(raizId) + '/' + rel) || {}).id; if (!id) continue; const antigo = String(vfs.ler(id) || ''); cod.guardarVersao(id, antigo, 'antes do assistente'); vfs.escrever(id, txt); feitos.push({ rel, id, antigo }); }
+    return feitos;
+  }
+  function desfazer(feitos) { for (const f of feitos) { try { vfs.escrever(f.id, f.antigo); } catch (e) { /* arquivo sumiu */ } } }
+  return { resolver, aplicar, desfazer, avaliar, sintetizar, exemplos, candidatos, _placar: placar };
 });
 
 // ===== sim/codigo/fase2_dados.js =====
